@@ -6,49 +6,105 @@
     <title>Simulateur Remplacement - FO PAM</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { 
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
-            background-color: #f1f5f9; 
-            margin: 0; 
-            padding: 0; 
-            user-select: none; 
-            -webkit-tap-highlight-color: transparent;
-        }
+        body { font-family: sans-serif; background-color: #f1f5f9; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
         .pam-blue { background-color: #003366; }
         .pam-text { color: #003366; }
-        .card { background: white; border-radius: 20px; padding: 20px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1); }
-        
-        .select-box { 
-            border: 2px solid #e2e8f0; 
-            background: white; 
-            border-radius: 12px; 
-            padding: 12px; 
-            font-weight: 700; 
-            color: #003366; 
-            width: 100%; 
-            outline: none; 
-            appearance: none;
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23003366'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
-            background-repeat: no-repeat;
-            background-position: right 12px center;
-            background-size: 16px;
-        }
-        
-        input { 
-            border: 2px solid #e2e8f0; 
-            border-radius: 12px; 
-            padding: 12px; 
-            font-weight: 700; 
-            width: 100%; 
-            text-align: center; 
-            color: #003366; 
-            outline: none; 
-            font-size: 16px;
-        }
-        
+        .card { background: white; border-radius: 20px; padding: 20px; border: 1px solid #e2e8f0; margin-bottom: 15px; }
+        .select-box { border: 2px solid #e2e8f0; background: white; border-radius: 12px; padding: 12px; font-weight: bold; color: #003366; width: 100%; outline: none; appearance: none; }
+        input { border: 2px solid #e2e8f0; border-radius: 12px; padding: 12px; font-weight: bold; width: 100%; text-align: center; color: #003366; outline: none; }
         .disabled-field { opacity: 0.3; pointer-events: none; filter: grayscale(1); }
-        
         .switch { position: relative; display: inline-block; width: 50px; height: 26px; }
         .switch input { opacity: 0; width: 0; height: 0; }
-        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #cbd5e1; transition: .
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #cbd5e1; transition: .4s; border-radius: 34px; }
+        .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: #ef4444; }
+        input:checked + .slider:before { transform: translateX(24px); }
+    </style>
+</head>
+<body class="p-4">
+    <div class="max-w-md mx-auto">
+        <div class="card">
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="text-[10px] font-bold text-slate-400 uppercase">Ma Classe</label>
+                    <select id="my-class" class="select-box" onchange="handleClassChange()"></select>
+                </div>
+                <div>
+                    <label class="text-[10px] font-bold text-slate-400 uppercase">Remplacement</label>
+                    <select id="replaced-class" class="select-box" onchange="handleClassChange()"></select>
+                </div>
+            </div>
+        </div>
 
+        <div id="resp-card" class="card flex items-center justify-between border-l-4 border-l-red-500">
+            <div>
+                <p class="font-bold pam-text text-sm">Prime de Responsabilité</p>
+                <p class="text-[10px] text-slate-500 italic">Forfait 14€ (D7 à E10)</p>
+            </div>
+            <label class="switch">
+                <input type="checkbox" id="resp-toggle" onchange="calculate()">
+                <span class="slider"></span>
+            </label>
+        </div>
+
+        <div id="hours-section" class="card">
+            <label class="text-[10px] font-bold text-slate-400 uppercase">Heures travaillées</label>
+            <input type="number" id="hours" value="7.67" step="0.01" oninput="calculate()">
+        </div>
+
+        <div class="card text-center shadow-lg">
+            <p class="text-slate-400 text-[10px] font-bold uppercase mb-1">Total Brut Estimé</p>
+            <div class="flex items-center justify-center">
+                <span id="result-amount" class="text-5xl font-black pam-text">0,00</span>
+                <span class="text-2xl font-bold text-red-600 ml-1">€</span>
+            </div>
+            <p id="calc-method" class="mt-4 text-[10px] font-bold uppercase text-slate-400"></p>
+        </div>
+    </div>
+
+    <script>
+        const classes = { "A1":1, "A2":2, "B3":3, "B4":4, "C5":5, "C6":6, "D7":7, "D8":8, "E9":9, "E10":10 };
+        const mySelect = document.getElementById('my-class');
+        const replacedSelect = document.getElementById('replaced-class');
+        const respToggle = document.getElementById('resp-toggle');
+        const hoursSection = document.getElementById('hours-section');
+
+        // Remplissage automatique des menus
+        Object.keys(classes).forEach(c => {
+            mySelect.add(new Option(c, c));
+            replacedSelect.add(new Option(c, c));
+        });
+        mySelect.value = "B4"; replacedSelect.value = "C5";
+
+        function handleClassChange() {
+            const target = replacedSelect.value;
+            // Forfait 14€ auto pour D et E (Article 13.3)
+            respToggle.checked = target.startsWith('D') || target.startsWith('E');
+            calculate();
+        }
+
+        function calculate() {
+            const isResp = respToggle.checked;
+            const hours = parseFloat(document.getElementById('hours').value) || 0;
+            let total = 0;
+
+            if (isResp) {
+                total = 14.00; // Forfait Article 13.3
+                hoursSection.classList.add('disabled-field');
+                document.getElementById('calc-method').textContent = "Forfait Responsabilité (Art 13.3)";
+            } else {
+                const diff = Math.max(0, classes[replacedSelect.value] - classes[mySelect.value]);
+                total = hours * (diff * 0.4); // Article 13.2
+                hoursSection.classList.remove('disabled-field');
+                document.getElementById('calc-method').textContent = "Prime de Remplacement (Art 13.2)";
+            }
+            document.getElementById('result-amount').textContent = total.toLocaleString('fr-FR', {minimumFractionDigits: 2});
+        }
+
+        // LANCEMENT AU DÉMARRAGE
+        window.onload = function() {
+            handleClassChange();
+        };
+    </script>
+</body>
+</html>
